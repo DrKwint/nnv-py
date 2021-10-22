@@ -1,0 +1,6 @@
+env
+nnv_py.egg-info
+target
+settings.json
+nnv_py/__pycache__/__init__.cpython-36.pyc
+nnv_py/nnv_py.cpython-36m-x86_64-linux-gnu.so
