@@ -1,3 +1,6 @@
+numpy
+scipy
 setuptools-rust
 setuptools
+dm-tree
 wheel
