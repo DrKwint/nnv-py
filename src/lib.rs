@@ -15,9 +15,8 @@ use nnv_rs::asterism::Asterism;
 use nnv_rs::bounds::{Bounds, Bounds1};
 use nnv_rs::constellation::Constellation;
 use nnv_rs::deeppoly::deep_poly;
-use nnv_rs::dnn::{DNNIndex, DNNIterator, DNN};
+use nnv_rs::dnn::{DNNIndex, DNNIterator, Layer, DNN};
 use nnv_rs::star::Star2;
-use nnv_rs::Layer;
 use numpy::Ix2;
 use rand::thread_rng;
 
