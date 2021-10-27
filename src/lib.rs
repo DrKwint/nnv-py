@@ -19,6 +19,7 @@ use nnv_rs::dnn::{DNNIndex, DNNIterator, Layer, DNN};
 use nnv_rs::star::Star2;
 use numpy::Ix2;
 use rand::thread_rng;
+use std::time::Duration;
 
 #[pyclass]
 #[derive(Clone, Debug)]
@@ -189,10 +190,17 @@ impl PyConstellation {
         cdf_samples: usize,
         num_samples: usize,
         max_iters: usize,
+        time_limit: Option<u64>,
     ) -> Option<(Py<PyArray1<f64>>, f64, f64)> {
         let mut rng = thread_rng();
         let mut asterism = Asterism::new(&mut self.constellation, safe_value);
-        let output = asterism.sample_safe_star(num_samples, &mut rng, cdf_samples, max_iters);
+        let output = asterism.sample_safe_star(
+            num_samples,
+            &mut rng,
+            cdf_samples,
+            max_iters,
+            time_limit.map(|x| Duration::from_millis(x)),
+        );
         if output.is_none() {
             return None;
         }

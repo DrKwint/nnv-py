@@ -120,16 +120,17 @@ class Constellation:
                                          fixed_part,
                                          loc=None,
                                          scale=None,
-                                         safe_value=None):
+                                         safe_value=None,
+                                         time_limit=None):
         fixed_part = np.squeeze(fixed_part).astype(np.float64)
         if loc is None:
             loc = self.loc
         if scale is None:
             scale = self.scale
         self.set_input_bounds(fixed_part, loc, scale)
-        return self.bounded_sample(safe_value)
+        return self.bounded_sample(safe_value, time_limit)
 
-    def bounded_sample(self, safe_value=None):
+    def bounded_sample(self, safe_value=None, time_limit=None):
         if safe_value is None:
             safe_value = self.default_safe_value
         if safe_value == np.inf:
@@ -147,7 +148,11 @@ class Constellation:
                 raise ValueError("Bad logprob from prob {}".format(prob))
             return sample, np.log(prob + 1e-12)
         output = self.constellation.bounded_sample_multivariate_gaussian(
-            safe_value, cdf_samples=30, num_samples=1, max_iters=2)
+            safe_value,
+            cdf_samples=30,
+            num_samples=1,
+            max_iters=2,
+            time_limit=time_limit)
         if output is None:
             sample = np.random.normal(self.loc, self.scale)
             prob = 1.
