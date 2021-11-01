@@ -38,3 +38,4 @@ sdist
 Thumbs.db
 */.ipynb_checkpoints
 docs/_build
+nnv_py/_version.py

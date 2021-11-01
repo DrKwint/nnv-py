@@ -32,6 +32,9 @@ setup(
     author="Eleanor Quint",
     author_email='eleanorquint1@gmail.com',
     install_requires=['numpy', 'dm-tree', 'scipy'],
+    setup_requires=[
+        "setuptools>=45", "wheel", "setuptools-rust", "setuptools_scm>=6.2"
+    ],
     extras_require=extras_require,
     packages=["nnv_py"],
     url='https://github.com/DrKwint/nnv-py',
