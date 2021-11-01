@@ -52,7 +52,7 @@ class DNN:
             upper (ndarray): Upper bound on each input dimension
 
         Returns:
-            TODO
+            (ndarray, ndarray): tuple of output lower and output bounds
         """
         return self.dnn.deeppoly_output_bounds(lower, upper)
 
