@@ -1,13 +1,50 @@
 from setuptools import setup
 from setuptools_rust import Binding, RustExtension
 
+with open('README.md') as fobj:
+    long_description = fobj.read()
+
+extras_require = {
+    'docs': [
+        'Sphinx>=1.7.2,<2.2.1', 'sphinx-rtd-theme>=0.3.0',
+        'sphinxcontrib-apidoc>=0.3.0'
+    ],
+}
+extras_require['complete'] = sorted(set(sum(extras_require.values(), [])))
+
+
+def myversion():
+    from setuptools_scm.version import get_local_dirty_tag
+
+    def clean_scheme(version):
+        return get_local_dirty_tag(version) if version.dirty else '+clean'
+
+    return {'local_scheme': clean_scheme}
+
+
 setup(
     name="nnv-py",
-    version="0.1.0",
+    use_scm_version=myversion,
+    description="Analyze deep neural networks with verification techniques",
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    license='MIT',
+    author="Eleanor Quint",
+    author_email='eleanorquint1@gmail.com',
+    install_requires=['numpy', 'dm-tree', 'scipy'],
+    extras_require=extras_require,
+    packages=["nnv_py"],
+    url='https://github.com/DrKwint/nnv-py',
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Science/Research',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+        'Topic :: Scientific/Engineering :: Artificial Intelligence',
+        'License :: OSI Approved :: MIT License'
+    ],
     rust_extensions=[
         RustExtension("nnv_py.nnv_py", binding=Binding.PyO3, native=True)
     ],
-    packages=["nnv_py"],
     # rust extensions are not zip safe, just like C-extensions.
-    zip_safe=False,
-    install_requires=['numpy', 'dm-tree', 'scipy'])
+    zip_safe=False)

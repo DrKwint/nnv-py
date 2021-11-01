@@ -6,3 +6,35 @@ nnv_py/__pycache__/__init__.cpython-36.pyc
 nnv_py/nnv_py.cpython-36m-x86_64-linux-gnu.so
 dist/nnv_py-0.1.0-py3.6-linux-x86_64.egg
 build/lib.linux-x86_64-3.6/nnv_py/nnv_py.cpython-36m-x86_64-linux-gnu.so
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# C extensions
+*.so
+
+# editor stuff
+.idea
+.vscode
+
+# Distribution / packaging
+env
+venv
+venv3
+devenv
+build
+docs_build
+dist
+sdist
+*.egg-info
+*.egg
+.eggs
+.tox
+
+# test/docs output
+*.png
+*.matrix
+Thumbs.db
+*/.ipynb_checkpoints
+docs/_build
