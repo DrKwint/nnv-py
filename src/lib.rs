@@ -184,7 +184,7 @@ impl PyConstellation {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn bounded_sample_multivariate_gaussian(
+    pub fn bounded_sample_input_multivariate_gaussian(
         &mut self,
         safe_value: f64,
         cdf_samples: usize,

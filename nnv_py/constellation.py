@@ -121,7 +121,7 @@ class Constellation:
             sample_time_limit (float): the time allowed per sample in milliseconds
         """
         # Check whether a reset is necessary
-        if fixed_part or mean or scale:
+        if fixed_part is not None or mean is not None or scale is not None:
             fixed_part = np.squeeze(fixed_part).astype(np.float64)
             self.set_input_bounds(fixed_part, mean, scale)
         if max_value:
