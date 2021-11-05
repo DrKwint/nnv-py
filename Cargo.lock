@@ -832,9 +832,7 @@ dependencies = [
 
 [[package]]
 name = "nnv-rs"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e00ac6b9b5a0cf45f38f992908b66e5a870ccfd75df3d2ab7625efaf63f82cf"
+version = "0.4.2"
 dependencies = [
  "approx 0.4.0",
  "env_logger 0.9.0",
@@ -1573,8 +1571,6 @@ dependencies = [
 [[package]]
 name = "truncnorm"
 version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fccebc05efd8ba6793925acdfdbfca6f7b3d699ed7cecbf73505e72c98deec4"
 dependencies = [
  "argmin",
  "bindgen",

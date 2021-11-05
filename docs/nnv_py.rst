@@ -10,6 +10,7 @@ Submodules
    nnv_py.constellation
    nnv_py.dnn
    nnv_py.nnv_py
+   nnv_py.nnv_py
 
 Module contents
 ---------------

@@ -168,10 +168,9 @@ class Constellation:
         # by the caller
         if output is None:
             return self._unbounded_gaussian_sample()
-        sample, sample_logp, branch_logp = output
+        sample, sample_logp = output
         normal_logp = self._gaussian_log_prob(sample)
-        final_logp = (normal_logp - sample_logp) + branch_logp
         if not np.all(np.isfinite(sample)) or not np.all(
-                np.isfinite(final_logp)):
+                np.isfinite(normal_logp)):
             raise ValueError()
-        return sample, final_logp
+        return sample, normal_logp

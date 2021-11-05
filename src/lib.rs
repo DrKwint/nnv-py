@@ -191,7 +191,7 @@ impl PyConstellation {
         num_samples: usize,
         max_iters: usize,
         time_limit: Option<u64>,
-    ) -> Option<(Py<PyArray1<f64>>, f64, f64)> {
+    ) -> Option<(Py<PyArray1<f64>>, f64)> {
         let mut rng = thread_rng();
         let mut asterism = Asterism::new(&mut self.constellation, safe_value);
         let output = asterism.sample_safe_star(
@@ -208,8 +208,7 @@ impl PyConstellation {
         let gil = Python::acquire_gil();
         let py = gil.python();
         Some((
-            PyArray1::from_array(py, &samples[0].0).to_owned(),
-            samples[0].1,
+            PyArray1::from_array(py, &samples[0]).to_owned(),
             branch_logp,
         ))
     }
