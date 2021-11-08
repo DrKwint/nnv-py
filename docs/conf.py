@@ -13,8 +13,6 @@
 import os
 import sys
 
-import nnv_py
-
 sys.path.insert(0, os.path.abspath('..'))
 #sys.path.insert(0, os.path.abspath('../nnv_py/'))
 
@@ -31,7 +29,7 @@ author = 'Eleanor Quint'
 # ones.
 extensions = [
     'sphinx.ext.napoleon', 'sphinx.ext.mathjax', 'sphinx.ext.viewcode',
-    'sphinxcontrib.apidoc', 'myst_parser', 'autoapi.extension'
+    'myst_parser', 'autoapi.extension'
 ]
 
 autoapi_dirs = ['../nnv_py']
