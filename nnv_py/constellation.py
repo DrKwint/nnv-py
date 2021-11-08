@@ -34,7 +34,7 @@ class Constellation:
                                                  np.diag(self.scale))
         self.fixed_part = None
         self.max_value = np.inf
-        self._sample_time_limit = np.inf
+        self._sample_time_limit = None
 
     def _set_mean(self, mean):
         if mean is None:
@@ -68,8 +68,8 @@ class Constellation:
 
         Args:
             fixed_part (ndarray): 1D prefix of the DNN input
-            mean (ndarray, optional): 1D Gaussian meanation parameter
-            scale (ndarray, optional): 2D Gaussian covariance parameter
+            mean (ndarray, optional): 1D Gaussian mean parameter
+            scale (ndarray, optional): 1D Gaussian variance parameter
         """
         self._set_mean(mean)
         if scale is not None:
@@ -131,15 +131,10 @@ class Constellation:
         return self.bounded_sample_input()
 
     def _gaussian_log_prob(self, sample):
-        prob = 1.
-        for (samp, mean, scale) in zip(sample, self.mean, self.scale):
-            dim_prob = norm.pdf(samp, mean, scale)
-            if not np.all(np.isfinite(dim_prob)):
-                raise ValueError("Bad dim_prob {dim_prob} from {samp} {l} {s}")
-            prob *= dim_prob
-        if not np.all(np.isfinite(np.log(prob + 1e-12))):
-            raise ValueError("Bad logprob from prob {prob}")
-        return np.log(prob + 1e-12)
+        log_unnormalized = -0.5 * np.square((sample / self.scale) -
+                                            (self.mean / self.scale))
+        log_normalization = 0.5 * np.log(2. * np.pi) + np.log(self.scale)
+        return np.sum(log_unnormalized - log_normalization)
 
     def _unbounded_gaussian_sample(self):
         sample = np.random.normal(self.mean, self.scale)
@@ -168,9 +163,9 @@ class Constellation:
         # by the caller
         if output is None:
             return self._unbounded_gaussian_sample()
-        sample, sample_logp = output
+        sample, path_logp, invalid_cdf_proportion = output
         normal_logp = self._gaussian_log_prob(sample)
         if not np.all(np.isfinite(sample)) or not np.all(
                 np.isfinite(normal_logp)):
             raise ValueError()
-        return sample, normal_logp
+        return sample, normal_logp - np.log(1 - invalid_cdf_proportion)

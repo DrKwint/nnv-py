@@ -37,6 +37,12 @@ class DNN:
             assert isinstance(network[0], tuple)
             assert isinstance(network[0][0], np.ndarray)
             self._build_from_tensorflow_params(network)
+        elif 'torch.nn' in str(type_):
+            import torch
+            if isinstance(network, torch.nn.Sequential):
+                self._build_from_torch_sequential(network)
+            else:
+                raise NotImplementedError(str(type_))
         else:
             raise NotImplementedError(str(type_))
 
@@ -55,6 +61,18 @@ class DNN:
             (ndarray, ndarray): tuple of output lower and output bounds
         """
         return self.dnn.deeppoly_output_bounds(lower, upper)
+
+    def _build_from_torch_sequential(self, sequential):
+        import torch
+        for i, layer in enumerate(sequential):
+            if isinstance(layer, torch.nn.Linear):
+                weight = layer.weight.detach().numpy()
+                bias = layer.bias.detach().numpy()
+                self.dnn.add_dense(weight, bias)
+            elif isinstance(layer, torch.nn.ReLU):
+                self.dnn.add_relu(bias.shape[-1])
+            else:
+                raise NotImplementedError("Unrecognized PyTorch layer!")
 
     def _build_from_tensorflow_params(self, affine_list):
         nlayers = len(affine_list)

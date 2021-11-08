@@ -8,7 +8,6 @@ A library for using verification techniques on deep neural networks backed by th
    :caption: Contents:
 
    installation.md
-   rl_example.md
    modules.rst
 
 

@@ -12,19 +12,9 @@ extras_require = {
 }
 extras_require['complete'] = sorted(set(sum(extras_require.values(), [])))
 
-
-def myversion():
-    from setuptools_scm.version import get_local_dirty_tag
-
-    def clean_scheme(version):
-        return get_local_dirty_tag(version) if version.dirty else '+clean'
-
-    return {'local_scheme': clean_scheme}
-
-
 setup(
     name="nnv-py",
-    use_scm_version=myversion,
+    use_scm_version=True,
     description="Analyze deep neural networks with verification techniques",
     long_description=long_description,
     long_description_content_type='text/markdown',
