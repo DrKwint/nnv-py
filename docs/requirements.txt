@@ -2,3 +2,4 @@ sphinx
 sphinxcontrib-apidoc
 myst-parser
 sphinx-rtd-theme
+nnv-py

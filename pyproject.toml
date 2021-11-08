@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools-rust", "setuptools_scm>=6.2"]
+requires = ["setuptools", "wheel", "setuptools-rust", "setuptools_scm"]
 
 [tool.setuptools_scm]
 write_to = "nnv_py/_version.py"
