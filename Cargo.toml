@@ -20,7 +20,7 @@ crate-type = ["cdylib"]
 pyo3 = { version = "^0.13", features = ["extension-module"] }
 env_logger = "0.9.0"
 numpy = "^0.13.2"
-nnv-rs = { version = "^0.5.1", features = ["rayon", "openblas-system"] }
+nnv-rs = { path = "../nnv-rs", features = ["openblas-system"] } #{ version = "^0.5.2", features = ["openblas-system"] }
 num = "^0.4.0"
 rand = "^0.8.4"
 

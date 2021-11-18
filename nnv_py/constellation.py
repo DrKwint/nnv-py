@@ -1,10 +1,12 @@
 """
 Constellation data structure
 """
+from os import path
 import numpy as np
 from scipy.stats import norm
 
 from nnv_py.nnv_py import PyConstellation  # pylint: disable=no-name-in-module
+from nnv_py.util import gaussian_likelihood
 
 SAMPLE_STD_DEVS = 3.5
 
@@ -130,15 +132,10 @@ class Constellation:
             self.sample_time_limit = sample_time_limit
         return self.bounded_sample_input()
 
-    def _gaussian_log_prob(self, sample):
-        log_unnormalized = -0.5 * np.square((sample / self.scale) -
-                                            (self.mean / self.scale))
-        log_normalization = 0.5 * np.log(2. * np.pi) + np.log(self.scale)
-        return np.sum(log_unnormalized - log_normalization)
-
     def _unbounded_gaussian_sample(self):
         sample = np.random.normal(self.mean, self.scale)
-        return sample, self._gaussian_log_prob(sample)
+        return sample, gaussian_likelihood(sample, self.mean,
+                                           np.log(self.scale)), 0.
 
     def bounded_sample_input(self):
         """
@@ -152,10 +149,11 @@ class Constellation:
             return self._unbounded_gaussian_sample()
         output = self.constellation.bounded_sample_input_multivariate_gaussian(
             self._max_value,
-            cdf_samples=30,
+            cdf_samples=300,
             num_samples=1,
-            max_iters=2,
-            time_limit=self._sample_time_limit)
+            max_iters=5,
+            time_limit=self._sample_time_limit,
+            stability_eps=1e-4)
 
         # Handle the case where no safe sample is found
         # Currently this cops out and returns an unbounded sample
@@ -164,8 +162,14 @@ class Constellation:
         if output is None:
             return self._unbounded_gaussian_sample()
         sample, path_logp, invalid_cdf_proportion = output
-        normal_logp = self._gaussian_log_prob(sample)
+        normal_logp = gaussian_likelihood(sample, self.mean,
+                                          np.log(self.scale))
+        invalid_logp = np.log(1 - invalid_cdf_proportion)
         if not np.all(np.isfinite(sample)) or not np.all(
                 np.isfinite(normal_logp)):
             raise ValueError()
-        return sample, normal_logp - np.log(1 - invalid_cdf_proportion)
+        if (normal_logp - invalid_logp) < -20:
+            print("Numerical Instability! Using an unconstrained sample.")
+            return self._unbounded_gaussian_sample()
+        return sample, normal_logp, invalid_logp + 0.00803217 * output[
+            0].shape[-1]

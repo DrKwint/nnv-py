@@ -191,6 +191,7 @@ impl PyConstellation {
         num_samples: usize,
         max_iters: usize,
         time_limit: Option<u64>,
+        stability_eps: f64,
     ) -> Option<(Py<PyArray1<f64>>, f64, f64)> {
         let mut rng = thread_rng();
         let mut asterism = Asterism::new(&mut self.constellation, safe_value);
@@ -200,6 +201,7 @@ impl PyConstellation {
             cdf_samples,
             max_iters,
             time_limit.map(|x| Duration::from_millis(x)),
+            stability_eps
         );
         if output.is_none() {
             return None;
