@@ -17,10 +17,10 @@ name = "nnv_py"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "^0.13", features = ["extension-module"] }
+pyo3 = { version = "^0.15.1", features = ["extension-module"] }
 env_logger = "0.9.0"
-numpy = "^0.13.2"
-nnv-rs = { path = "../nnv-rs", features = ["openblas-system"] } #{ version = "^0.5.2", features = ["openblas-system"] }
+numpy = "^0.15.0"
+nnv-rs = { version = "^0.5.4", features = ["blas_intel-mkl", "lp_gurobi"] }
 num = "^0.4.0"
 rand = "^0.8.4"
 
@@ -28,3 +28,5 @@ rand = "^0.8.4"
 lto = true
 codegen-units = 1
 panic = "abort"
+target-cpu = "native"
+opt-level = 3

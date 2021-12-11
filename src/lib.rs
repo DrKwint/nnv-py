@@ -8,6 +8,7 @@ use numpy::PyArray1;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArray4};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
+use pyo3::wrap_pyfunction;
 use pyo3::PyObjectProtocol;
 
 use nnv_rs::affine::{Affine2, Affine4};
@@ -138,7 +139,6 @@ impl PyConstellation {
             constellation: Constellation::new(
                 star,
                 dnn,
-                bounds,
                 loc.as_array().to_owned(),
                 scale.as_array().to_owned(),
             ),
@@ -146,11 +146,7 @@ impl PyConstellation {
     }
 
     pub fn get_input_bounds(&self) -> Option<(Py<PyArray1<f64>>, Py<PyArray1<f64>>)> {
-        let input_bounds = self
-            .constellation
-            .get_input_bounds()
-            .as_ref()
-            .map(Bounds::as_tuple);
+        let input_bounds = self.constellation.get_input_bounds().map(Bounds::as_tuple);
         let gil = Python::acquire_gil();
         let py = gil.python();
         input_bounds.map(|(l, u)| {
@@ -180,7 +176,7 @@ impl PyConstellation {
         if let Some(ref b) = bounds {
             star = star.with_input_bounds((*b).clone());
         }
-        self.constellation.reset_with_star(star, bounds);
+        self.constellation.reset_with_star(star);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -201,7 +197,7 @@ impl PyConstellation {
             cdf_samples,
             max_iters,
             time_limit.map(|x| Duration::from_millis(x)),
-            stability_eps
+            stability_eps,
         );
         if output.is_none() {
             return None;
@@ -217,11 +213,25 @@ impl PyConstellation {
     }
 }
 
+#[pyfunction]
+fn halfspace_gaussian_cdf(
+    coeffs: PyReadonlyArray1<f64>,
+    rhs: f64,
+    mu: PyReadonlyArray1<f64>,
+    sigma: PyReadonlyArray1<f64>,
+) -> f64 {
+    let mu = mu.as_array().to_owned();
+    let sigma = sigma.as_array().to_owned();
+    let coeffs = coeffs.as_array().to_owned();
+    nnv_rs::trunks::halfspace_gaussian_cdf(coeffs, rhs, mu, sigma)
+}
+
 /// # Errors
 #[pymodule]
 pub fn nnv_py(_py: Python, m: &PyModule) -> PyResult<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
     m.add_class::<PyConstellation>()?;
     m.add_class::<PyDNN>()?;
+    m.add_function(wrap_pyfunction!(halfspace_gaussian_cdf, m)?)?;
     Ok(())
 }

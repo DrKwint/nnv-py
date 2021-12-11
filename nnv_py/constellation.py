@@ -8,7 +8,7 @@ from scipy.stats import norm
 from nnv_py.nnv_py import PyConstellation  # pylint: disable=no-name-in-module
 from nnv_py.util import gaussian_likelihood
 
-SAMPLE_STD_DEVS = 3.5
+SAMPLE_STD_DEVS = 1.96
 
 
 # pylint: disable=too-many-instance-attributes
@@ -150,10 +150,10 @@ class Constellation:
         output = self.constellation.bounded_sample_input_multivariate_gaussian(
             self._max_value,
             cdf_samples=300,
-            num_samples=1,
+            num_samples=1000,
             max_iters=5,
             time_limit=self._sample_time_limit,
-            stability_eps=1e-4)
+            stability_eps=1e-10)
 
         # Handle the case where no safe sample is found
         # Currently this cops out and returns an unbounded sample
@@ -164,12 +164,10 @@ class Constellation:
         sample, path_logp, invalid_cdf_proportion = output
         normal_logp = gaussian_likelihood(sample, self.mean,
                                           np.log(self.scale))
-        invalid_logp = np.log(1 - invalid_cdf_proportion)
+        invalid_logp = np.log(1. - invalid_cdf_proportion)
         if not np.all(np.isfinite(sample)) or not np.all(
                 np.isfinite(normal_logp)):
             raise ValueError()
-        if (normal_logp - invalid_logp) < -20:
-            print("Numerical Instability! Using an unconstrained sample.")
+        if (normal_logp - invalid_logp) < -10:
             return self._unbounded_gaussian_sample()
-        return sample, normal_logp, invalid_logp + 0.00803217 * output[
-            0].shape[-1]
+        return sample, normal_logp, invalid_logp + 0.048665171
