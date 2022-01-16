@@ -4,28 +4,60 @@ extern crate numpy;
 extern crate pyo3;
 extern crate rand;
 
+use numpy::ndarray::Array1;
+use numpy::Ix2;
 use numpy::PyArray1;
+use numpy::PyArray2;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArray4};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use pyo3::wrap_pyfunction;
 use pyo3::PyObjectProtocol;
 
+use crate::nnv_rs::starsets::Asterism;
+use crate::nnv_rs::starsets::CensoredProbStarSet2;
+use crate::nnv_rs::starsets::CensoredProbStarSet;
+use crate::nnv_rs::starsets::ProbStarSet2;
+use crate::nnv_rs::starsets::StarSet;
+use crate::nnv_rs::starsets::VecStarSet;
+use itertools::izip;
 use nnv_rs::affine::{Affine2, Affine4};
-use nnv_rs::asterism::Asterism;
-use nnv_rs::bounds::{Bounds, Bounds1};
-use nnv_rs::constellation::Constellation;
+use nnv_rs::bounds::Bounds1;
 use nnv_rs::deeppoly::deep_poly;
 use nnv_rs::dnn::{DNNIndex, DNNIterator, Layer, DNN};
 use nnv_rs::star::Star2;
-use numpy::Ix2;
 use rand::thread_rng;
+use statrs::distribution::{ContinuousCDF, Normal};
 use std::time::Duration;
+use crate::nnv_rs::starsets::AdversarialStarSet2;
+
+#[pyclass]
+#[derive(Clone, Debug)]
+struct PyBounds1 {
+    bounds: Bounds1,
+}
+
+#[pymethods]
+impl PyBounds1 {
+    fn diag_gaussian_cdf(&self, mean: PyReadonlyArray1<f64>, scale: PyReadonlyArray1<f64>) -> f64 {
+        let mut product_cdf = 1.;
+        for (l, u, m, s) in izip!(
+            self.bounds.lower(),
+            self.bounds.upper(),
+            mean.as_array(),
+            scale.as_array()
+        ) {
+            let dim_norm = Normal::new(*m, *s).unwrap();
+            product_cdf *= dim_norm.cdf(*u) - dim_norm.cdf(*l);
+        }
+        product_cdf
+    }
+}
 
 #[pyclass]
 #[derive(Clone, Debug)]
 struct PyDNN {
-    dnn: DNN<f64>,
+    dnn: DNN,
 }
 
 #[pymethods]
@@ -106,47 +138,102 @@ impl PyObjectProtocol for PyDNN {
 }
 
 #[pyclass]
-struct PyConstellation {
-    constellation: Constellation<f64, Ix2>,
+struct PyStarSet {
+    starset: VecStarSet<Ix2>,
 }
 
 #[pymethods]
-impl PyConstellation {
+impl PyStarSet {
+    #[new]
+    pub fn py_new(py_dnn: PyDNN) -> Self {
+        let dnn = py_dnn.dnn;
+        let input_shape = dnn.input_shape();
+        let star = Star2::default(&input_shape);
+        let starset = VecStarSet::new(dnn, star);
+        PyStarSet { starset }
+    }
+
+    pub fn minimal_norm_targeted_attack_delta(
+        &mut self,
+        x: PyReadonlyArray1<f64>,
+        target_y: usize,
+    ) -> Py<PyArray1<f64>> {
+        let delta = self
+            .starset
+            .minimal_norm_targeted_attack_delta(&x.as_array().to_owned(), target_y);
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+        PyArray1::from_array(py, &delta).to_owned()
+    }
+}
+
+#[pyclass]
+struct PyAsterism {
+    asterism: Asterism<Ix2>,
+}
+
+#[pymethods]
+impl PyAsterism {
     #[new]
     pub fn py_new(
         py_dnn: PyDNN,
         input_bounds: Option<(PyReadonlyArray1<f64>, PyReadonlyArray1<f64>)>,
         loc: PyReadonlyArray1<f64>,
         scale: PyReadonlyArray2<f64>,
+        safe_value: f64,
+        cdf_samples: usize,
+        max_iters: usize,
+        stability_eps: f64,
     ) -> Self {
         let dnn = py_dnn.dnn;
         let input_shape = dnn.input_shape();
-        let bounds = input_bounds.map(|(lbs, ubs)| Bounds::new(lbs.as_array(), ubs.as_array()));
+        let bounds = input_bounds.map(|(lbs, ubs)| Bounds1::new(lbs.as_array(), ubs.as_array()));
 
         let star = match input_shape.rank() {
             1 => {
-                let mut star = Star2::default(&input_shape);
-                if let Some(ref b) = bounds {
-                    star = star.with_input_bounds((*b).clone());
-                }
-                star
+                Star2::default(&input_shape)
             }
             _ => {
                 panic!()
             }
         };
         Self {
-            constellation: Constellation::new(
-                star,
+            asterism: Asterism::new(
                 dnn,
+                star,
                 loc.as_array().to_owned(),
                 scale.as_array().to_owned(),
+                safe_value,
+                bounds,
+                cdf_samples,
+                max_iters,
+                stability_eps,
             ),
         }
     }
 
+    pub fn get_mean(&self) -> Py<PyArray1<f64>> {
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+        PyArray1::from_array(py, &self.asterism.get_loc()).to_owned()
+    }
+
+    pub fn set_mean(&mut self, val: PyReadonlyArray1<f64>) {
+        self.asterism.set_loc(val.as_array().to_owned())
+    }
+
+    pub fn get_scale(&self) -> Py<PyArray2<f64>> {
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+        PyArray2::from_array(py, &self.asterism.get_scale()).to_owned()
+    }
+
+    pub fn set_scale(&mut self, val: PyReadonlyArray2<f64>) {
+        self.asterism.set_scale(val.as_array().to_owned())
+    }
+
     pub fn get_input_bounds(&self) -> Option<(Py<PyArray1<f64>>, Py<PyArray1<f64>>)> {
-        let input_bounds = self.constellation.get_input_bounds().map(Bounds::as_tuple);
+        let input_bounds = self.asterism.get_input_bounds().as_ref().map(Bounds1::as_tuple);
         let gil = Python::acquire_gil();
         let py = gil.python();
         input_bounds.map(|(l, u)| {
@@ -172,44 +259,79 @@ impl PyConstellation {
             (None, Some(u)) => Some(u),
             (None, None) => None,
         };
-        let mut star = Star2::default(&self.constellation.get_dnn().input_shape());
-        if let Some(ref b) = bounds {
-            star = star.with_input_bounds((*b).clone());
-        }
-        self.constellation.reset_with_star(star);
+        let star = Star2::default(&self.asterism.get_dnn().input_shape());
+        self.asterism.reset_with_star(star, bounds);
+    }
+
+    pub fn get_safe_value(&self) -> f64 {
+        self.asterism.get_safe_value()
+    }
+
+
+    pub fn set_safe_value(&mut self, val: f64) {
+        self.asterism.set_safe_value(val);
     }
 
     #[allow(clippy::too_many_arguments)]
     pub fn bounded_sample_input_multivariate_gaussian(
         &mut self,
-        safe_value: f64,
-        cdf_samples: usize,
         num_samples: usize,
-        max_iters: usize,
         time_limit: Option<u64>,
-        stability_eps: f64,
     ) -> Option<(Py<PyArray1<f64>>, f64, f64)> {
         let mut rng = thread_rng();
-        let mut asterism = Asterism::new(&mut self.constellation, safe_value);
-        let output = asterism.sample_safe_star(
-            num_samples,
-            &mut rng,
-            cdf_samples,
-            max_iters,
-            time_limit.map(|x| Duration::from_millis(x)),
-            stability_eps,
-        );
-        if output.is_none() {
-            return None;
-        }
-        let (samples, path_logp, invalid_cdf_proportion) = output.unwrap();
+        let output = self.asterism.sample_safe_star(num_samples, &mut rng, time_limit.map(Duration::from_millis));
+        let (samples, path_logp, invalid_cdf_proportion) = output.as_ref()?;
         let gil = Python::acquire_gil();
         let py = gil.python();
         Some((
             PyArray1::from_array(py, &samples[0]).to_owned(),
-            path_logp,
-            invalid_cdf_proportion,
+            *path_logp,
+            *invalid_cdf_proportion,
         ))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn get_samples_and_overapproximated_infeasible_input_regions(
+        &mut self,
+        total_samples: usize,
+        num_intermediate_samples: usize,
+        time_limit: Option<u64>,
+    ) -> Option<(Vec<Vec<Py<PyArray1<f64>>>>, Vec<PyBounds1>)> {
+        let mut rng = thread_rng();
+        let mut sum_samples = 0;
+        let sample_chunks: Vec<Vec<Array1<f64>>> = {
+            let mut chunks = vec![];
+            while sum_samples < total_samples {
+                if let Some(chunk) = self.asterism.sample_safe_star(
+                    num_intermediate_samples,
+                    &mut rng,
+                    time_limit.map(Duration::from_millis),
+                ) {
+                    sum_samples += chunk.0.len();
+                    chunks.push(chunk.0);
+                } else {
+                    return None;
+                }
+            }
+            chunks
+        };
+        let regions: Vec<PyBounds1> = self.asterism
+            .get_overapproximated_infeasible_input_regions()
+            .into_iter()
+            .map(|bounds| PyBounds1 { bounds })
+            .collect();
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+        let py_sample_chunks: Vec<Vec<Py<PyArray1<f64>>>> = sample_chunks
+            .into_iter()
+            .map(|chunk| {
+                chunk
+                    .into_iter()
+                    .map(|x| PyArray1::from_array(py, &x).to_owned())
+                    .collect()
+            })
+            .collect();
+        Some((py_sample_chunks, regions))
     }
 }
 
@@ -223,15 +345,16 @@ fn halfspace_gaussian_cdf(
     let mu = mu.as_array().to_owned();
     let sigma = sigma.as_array().to_owned();
     let coeffs = coeffs.as_array().to_owned();
-    nnv_rs::trunks::halfspace_gaussian_cdf(coeffs, rhs, mu, sigma)
+    nnv_rs::trunks::halfspace_gaussian_cdf(coeffs, rhs, &mu, &sigma)
 }
 
 /// # Errors
 #[pymodule]
 pub fn nnv_py(_py: Python, m: &PyModule) -> PyResult<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
-    m.add_class::<PyConstellation>()?;
+    m.add_class::<PyAsterism>()?;
     m.add_class::<PyDNN>()?;
+    m.add_class::<PyStarSet>()?;
     m.add_function(wrap_pyfunction!(halfspace_gaussian_cdf, m)?)?;
     Ok(())
 }

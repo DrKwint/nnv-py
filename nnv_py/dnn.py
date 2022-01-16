@@ -103,7 +103,7 @@ class DNN:
             elif isinstance(layer, Dense):
                 weights = layer.get_weights()
                 self.dnn.add_dense(weights[0].T, weights[1])
-                if layer.activation == tf.nn.relu:
+                if 'relu' in str(layer.activation):
                     self.dnn.add_relu(len(weights[1]))
             elif isinstance(layer, Conv2D):
                 weights = layer.get_weights()

@@ -699,18 +699,18 @@ name = "nnv-py"
 version = "0.1.0"
 dependencies = [
  "env_logger",
+ "itertools",
  "nnv-rs",
  "num",
  "numpy",
  "pyo3",
  "rand",
+ "statrs",
 ]
 
 [[package]]
 name = "nnv-rs"
 version = "0.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d54bbbfa37d959d91ccd19d7a0a883752d254e8c0da342227a547c1f07b7874"
 dependencies = [
  "approx 0.5.0",
  "blas-src",
@@ -728,6 +728,8 @@ dependencies = [
  "openblas-src",
  "ordered-float",
  "rand",
+ "serde",
+ "serde_json",
  "shh",
  "truncnorm",
 ]
@@ -1373,8 +1375,6 @@ dependencies = [
 [[package]]
 name = "truncnorm"
 version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "666f6dc8daecc3a6db8c214217e715b98c54f5831d779e964824a7be29123acf"
 dependencies = [
  "argmin",
  "bindgen",
@@ -1387,6 +1387,7 @@ dependencies = [
  "num",
  "openblas-src",
  "rand",
+ "serde",
  "statrs",
 ]
 
