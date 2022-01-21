@@ -13,10 +13,12 @@ use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use pyo3::wrap_pyfunction;
 use pyo3::PyObjectProtocol;
+use serde_json;
 
+use crate::nnv_rs::starsets::AdversarialStarSet2;
 use crate::nnv_rs::starsets::Asterism;
-use crate::nnv_rs::starsets::CensoredProbStarSet2;
 use crate::nnv_rs::starsets::CensoredProbStarSet;
+use crate::nnv_rs::starsets::CensoredProbStarSet2;
 use crate::nnv_rs::starsets::ProbStarSet2;
 use crate::nnv_rs::starsets::StarSet;
 use crate::nnv_rs::starsets::VecStarSet;
@@ -28,8 +30,7 @@ use nnv_rs::dnn::{DNNIndex, DNNIterator, Layer, DNN};
 use nnv_rs::star::Star2;
 use rand::thread_rng;
 use statrs::distribution::{ContinuousCDF, Normal};
-use std::time::Duration;
-use crate::nnv_rs::starsets::AdversarialStarSet2;
+use std::time::{Duration, Instant};
 
 #[pyclass]
 #[derive(Clone, Debug)]
@@ -190,9 +191,7 @@ impl PyAsterism {
         let bounds = input_bounds.map(|(lbs, ubs)| Bounds1::new(lbs.as_array(), ubs.as_array()));
 
         let star = match input_shape.rank() {
-            1 => {
-                Star2::default(&input_shape)
-            }
+            1 => Star2::default(&input_shape),
             _ => {
                 panic!()
             }
@@ -210,6 +209,16 @@ impl PyAsterism {
                 stability_eps,
             ),
         }
+    }
+
+    pub fn serialize(&self) -> String {
+        let serialized = serde_json::to_string(&self.asterism).unwrap();
+        serialized
+    }
+
+    pub fn build_tree(&mut self, num_samples: usize) {
+        let mut rng = thread_rng();
+        self.asterism.dfs_samples(num_samples, &mut rng, None);
     }
 
     pub fn get_mean(&self) -> Py<PyArray1<f64>> {
@@ -233,7 +242,11 @@ impl PyAsterism {
     }
 
     pub fn get_input_bounds(&self) -> Option<(Py<PyArray1<f64>>, Py<PyArray1<f64>>)> {
-        let input_bounds = self.asterism.get_input_bounds().as_ref().map(Bounds1::as_tuple);
+        let input_bounds = self
+            .asterism
+            .get_input_bounds()
+            .as_ref()
+            .map(Bounds1::as_tuple);
         let gil = Python::acquire_gil();
         let py = gil.python();
         input_bounds.map(|(l, u)| {
@@ -267,7 +280,6 @@ impl PyAsterism {
         self.asterism.get_safe_value()
     }
 
-
     pub fn set_safe_value(&mut self, val: f64) {
         self.asterism.set_safe_value(val);
     }
@@ -279,7 +291,17 @@ impl PyAsterism {
         time_limit: Option<u64>,
     ) -> Option<(Py<PyArray1<f64>>, f64, f64)> {
         let mut rng = thread_rng();
-        let output = self.asterism.sample_safe_star(num_samples, &mut rng, time_limit.map(Duration::from_millis));
+        let fst_instant = Instant::now();
+        let output = self.asterism.sample_safe_star(
+            num_samples,
+            &mut rng,
+            time_limit.map(Duration::from_millis),
+        );
+        let snd_instant = Instant::now();
+        println!(
+            "Elapsed sampling time: {:?}",
+            snd_instant.duration_since(fst_instant)
+        );
         let (samples, path_logp, invalid_cdf_proportion) = output.as_ref()?;
         let gil = Python::acquire_gil();
         let py = gil.python();
@@ -315,7 +337,8 @@ impl PyAsterism {
             }
             chunks
         };
-        let regions: Vec<PyBounds1> = self.asterism
+        let regions: Vec<PyBounds1> = self
+            .asterism
             .get_overapproximated_infeasible_input_regions()
             .into_iter()
             .map(|bounds| PyBounds1 { bounds })

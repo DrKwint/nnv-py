@@ -44,6 +44,12 @@ class Asterism:
         self._sample_time_limit = None
         self.cached_infeasible_regions = {}
 
+    def serialize(self):
+        return self.asterism.serialize()
+
+    def build_tree(self, num_samples):
+        self.asterism.build_tree(num_samples)
+
     def clear_cache(self):
         self.cached_infeasible_regions = {}
 
@@ -101,7 +107,8 @@ class Asterism:
         self._set_distribution_params(mean, scale)
         unfixed_part = ((mean - SAMPLE_STD_DEVS * scale).astype(np.float64),
                         (mean + SAMPLE_STD_DEVS * scale).astype(np.float64))
-        self.asterism.set_input_bounds(fixed_part, unfixed_part)
+        self.asterism.set_input_bounds(fixed_part.astype(np.float64),
+                                       unfixed_part)
 
     @property
     def max_value(self):
@@ -169,7 +176,7 @@ class Asterism:
         if max_value:
             self.asterism.set_safe_value(max_value)
         if sample_time_limit:
-            self.sample_time_limit = sample_time_limit
+            self._sample_time_limit = sample_time_limit
 
         if len(fixed_part.shape) > 1:
             if len(fixed_part) > 2 or fixed_part.shape[0] != 1:
@@ -211,7 +218,7 @@ class Asterism:
         if max_value:
             self.max_value = max_value
         if sample_time_limit:
-            self.sample_time_limit = sample_time_limit
+            self._sample_time_limit = sample_time_limit
         return self.bounded_sample_input()
 
     def _unbounded_gaussian_sample(self):

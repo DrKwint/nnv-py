@@ -24,11 +24,12 @@ numpy = "^0.15.0"
 nnv-rs = { path = "../nnv-rs/", features = ["blas_openblas-system", "lp_gurobi"] }
 num = "^0.4.0"
 rand = "^0.8.4"
+serde_json = "^1.0.75"
 statrs = "^0.15.0"
 
 [profile.release]
 lto = true
 codegen-units = 1
-panic = "abort"
 target-cpu = "native"
 opt-level = 3
+debug = true
