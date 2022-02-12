@@ -190,7 +190,7 @@ class Asterism:
         if output is None:
             self.cached_infeasible_regions[fixed_part] = []
             return np.random.normal(self.asterism.get_mean(),
-                                    self.asterism.get_scale())
+                                    np.diag(self.asterism.get_scale()), size=(num_samples, len(self.asterism.get_mean())))
         sample_chunks, self.cached_infeasible_regions[fixed_part] = output
         sample = np.concatenate(sample_chunks)[:num_samples]
         return sample
