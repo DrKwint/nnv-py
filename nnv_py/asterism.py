@@ -27,7 +27,7 @@ class Asterism:
                  safe_value=np.inf,
                  cdf_samples=100,
                  max_iters=5,
-                 stability_eps=1e-12):
+                 stability_eps=1e-5):
         """
         Args:
             dnn (nnv_py.DNN): The DNN architecture to build on
@@ -71,7 +71,7 @@ class Asterism:
                 scale=None,
                 cdf_samples=100,
                 max_iters=5,
-                stability_eps=1e-12):
+                stability_eps=1e-5):
         """Change the DNN architecture to build on, resets the Asterism
 
         Args:
@@ -243,7 +243,7 @@ class Asterism:
             num_samples=100,
             max_iters=5,
             time_limit=self._sample_time_limit,
-            stability_eps=1e-10)
+            stability_eps=1e-5)
 
         # Handle the case where no safe sample is found
         # Currently this cops out and returns an unbounded sample
