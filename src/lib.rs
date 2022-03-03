@@ -8,7 +8,7 @@ use numpy::ndarray::Array1;
 use numpy::Ix2;
 use numpy::PyArray1;
 use numpy::PyArray2;
-use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArray4};
+use numpy::{PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use pyo3::wrap_pyfunction;
@@ -23,10 +23,9 @@ use crate::nnv_rs::starsets::ProbStarSet2;
 use crate::nnv_rs::starsets::StarSet;
 use crate::nnv_rs::starsets::VecStarSet;
 use itertools::izip;
-use nnv_rs::affine::{Affine2, Affine4};
 use nnv_rs::bounds::Bounds1;
 use nnv_rs::deeppoly::deep_poly;
-use nnv_rs::dnn::{DNNIndex, DNNIterator, Layer, DNN};
+use nnv_rs::dnn::{DNNIndex, DNNIterator, Dense, ReLU, DNN};
 use nnv_rs::star::Star2;
 use rand::thread_rng;
 use statrs::distribution::{ContinuousCDF, Normal};
@@ -49,9 +48,18 @@ impl PyBounds1 {
             scale.as_array()
         ) {
             let dim_norm = Normal::new(*m, *s).unwrap();
-            product_cdf *= dim_norm.cdf(*u) - dim_norm.cdf(*l);
+            let val = dim_norm.cdf(*u) - dim_norm.cdf(*l);
+            println!("l {:?}, u {:?}, m {:?}, s {:?}, dim: {:?}", l, u, m, s, val);
+            product_cdf *= val;
         }
         product_cdf
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for PyBounds1 {
+    fn __str__(&self) -> String {
+        format!("Bounds: {}", self.bounds)
     }
 }
 
@@ -75,7 +83,7 @@ impl PyDNN {
     }
 
     fn add_dense(&mut self, filters: PyReadonlyArray2<f32>, bias: PyReadonlyArray1<f32>) {
-        self.dnn.add_layer(Layer::new_dense(Affine2::new(
+        self.dnn.add_layer(Box::new(Dense::from_parts(
             filters
                 .as_array()
                 .to_owned()
@@ -83,9 +91,10 @@ impl PyDNN {
             bias.as_array()
                 .to_owned()
                 .mapv(|x| <f64 as num::NumCast>::from(x).unwrap()),
-        )))
+        )));
     }
 
+    /*
     fn add_conv(&mut self, filters: PyReadonlyArray4<f32>, bias: PyReadonlyArray1<f32>) {
         self.dnn.add_layer(Layer::new_conv(Affine4::new(
             filters
@@ -97,17 +106,18 @@ impl PyDNN {
                 .mapv(|x| <f64 as num::NumCast>::from(x).unwrap()),
         )))
     }
+    */
 
-    fn add_maxpool(&mut self, pool_size: usize) {
-        self.dnn.add_layer(Layer::new_maxpool(pool_size))
-    }
+    //fn add_maxpool(&mut self, pool_size: usize) {
+    //    self.dnn.add_layer(Layer::new_maxpool(pool_size))
+    //}
 
-    fn add_flatten(&mut self) {
-        self.dnn.add_layer(Layer::Flatten)
-    }
+    //fn add_flatten(&mut self) {
+    //    self.dnn.add_layer(Layer::Flatten)
+    //}
 
     fn add_relu(&mut self, ndim: usize) {
-        self.dnn.add_layer(Layer::new_relu(ndim))
+        self.dnn.add_layer(Box::new(ReLU::new(ndim)))
     }
 
     fn deeppoly_output_bounds(
@@ -121,6 +131,7 @@ impl PyDNN {
         );
         let output_bounds = deep_poly(
             &input_bounds,
+            &self.dnn,
             DNNIterator::new(&self.dnn, DNNIndex::default()),
         );
         let gil = Python::acquire_gil();
@@ -317,31 +328,45 @@ impl PyAsterism {
         &mut self,
         total_samples: usize,
         num_intermediate_samples: usize,
-        time_limit: Option<u64>,
+        time_limit_opt: Option<u64>,
     ) -> Option<(Vec<Vec<Py<PyArray1<f64>>>>, Vec<PyBounds1>)> {
+        let start_time = Instant::now();
         let mut rng = thread_rng();
         let mut sum_samples = 0;
+        // Sample
         let sample_chunks: Vec<Vec<Array1<f64>>> = {
             let mut chunks = vec![];
             while sum_samples < total_samples {
                 if let Some(chunk) = self.asterism.sample_safe_star(
                     num_intermediate_samples,
                     &mut rng,
-                    time_limit.map(Duration::from_millis),
+                    time_limit_opt.map(Duration::from_millis),
                 ) {
                     sum_samples += chunk.0.len();
                     chunks.push(chunk.0);
                 } else {
+                    println!("Returning none from PyAsterism sample");
                     return None;
                 }
             }
             chunks
         };
+        // Invalidate
+        self.asterism.dfs_samples(
+            num_intermediate_samples,
+            &mut rng,
+            time_limit_opt
+                .map(|x| Duration::saturating_sub(Duration::from_millis(x), start_time.elapsed())),
+        );
+
+        // return invalid regions
         let regions: Vec<PyBounds1> = self
             .asterism
             .get_overapproximated_infeasible_input_regions()
             .into_iter()
-            .map(|bounds| PyBounds1 { bounds })
+            .map(|bounds| PyBounds1 {
+                bounds: bounds.unfixed_dims(),
+            })
             .collect();
         let gil = Python::acquire_gil();
         let py = gil.python();

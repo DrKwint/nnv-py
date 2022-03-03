@@ -3,13 +3,11 @@ Asterism data structure
 """
 from os import path
 import numpy as np
-from numpy.lib.ufunclike import fix
-from scipy.stats import norm
 
 from nnv_py.nnv_py import PyAsterism  # pylint: disable=no-name-in-module
 from nnv_py.util import gaussian_likelihood
 
-SAMPLE_STD_DEVS = 1.96
+SAMPLE_STD_DEVS = 2.56
 
 
 # pylint: disable=too-many-instance-attributes
@@ -141,20 +139,23 @@ class Asterism:
 
     def _calculate_single_infeasible_cdf(self, fixed_part, loc, scale):
         sum_cdf = 0.
-        for region in self.cached_infeasible_regions[fixed_part]:
-            sum_cdf += region.diag_gaussian_cdf(loc, scale)
+        for region in self.cached_infeasible_regions[tuple(fixed_part)]:
+            val = region.diag_gaussian_cdf(loc, scale)
+            print("val:", val)
+            sum_cdf += val
+        print("sum:", sum_cdf)
         return np.array(sum_cdf)
 
     def calculate_infeasible_cdf(self, fixed_part, loc, scale):
-        fixed_part = np.squeeze(fixed_part)
-        loc = np.squeeze(fixed_part)
-        scale = tuple(scale)
+        fixed_part = np.squeeze(np.array(fixed_part, dtype=np.float64, copy=False))
+        loc = np.squeeze(np.array(loc, dtype=np.float64, copy=False))
+        scale = np.array(scale, dtype=np.float64, copy=False)
         if len(fixed_part.shape) == 1:
             return self._calculate_single_infeasible_cdf(
-                tuple(fixed_part), tuple(loc), scale)
+                fixed_part, loc, scale)
         elif len(fixed_part.shape) == 2:
             return np.stack([
-                self._calculate_single_infeasible_cdf(tuple(x), tuple(l),
+                self._calculate_single_infeasible_cdf(x, l,
                                                       scale)
                 for (x, l) in zip(fixed_part, loc)
             ])
@@ -170,6 +171,7 @@ class Asterism:
             max_value=None,
             sample_time_limit=None):
         # Check whether a reset is necessary
+        print("NEW SAMPLE")
         if fixed_part is not None or mean is not None or scale is not None:
             fixed_part = np.squeeze(fixed_part).astype(np.float64)
             self.set_input_bounds(fixed_part, mean, scale)
@@ -182,16 +184,16 @@ class Asterism:
             if len(fixed_part) > 2 or fixed_part.shape[0] != 1:
                 raise Exception()
             fixed_part = fixed_part[0]
-        fixed_part = tuple(fixed_part)
         output = self.asterism.get_samples_and_overapproximated_infeasible_input_regions(
             num_samples,
             num_intermediate_samples=100,
-            time_limit=self._sample_time_limit)
+            time_limit_opt=self._sample_time_limit)
         if output is None:
-            self.cached_infeasible_regions[fixed_part] = []
+            print("Setting infeasible regions to None")
+            self.cached_infeasible_regions[tuple(fixed_part)] = []
             return np.random.normal(self.asterism.get_mean(),
                                     np.diag(self.asterism.get_scale()), size=(num_samples, len(self.asterism.get_mean())))
-        sample_chunks, self.cached_infeasible_regions[fixed_part] = output
+        sample_chunks, self.cached_infeasible_regions[tuple(fixed_part)] = output
         sample = np.concatenate(sample_chunks)[:num_samples]
         return sample
 
