@@ -115,8 +115,7 @@ class DNN:
             elif isinstance(layer, Flatten):
                 self.dnn.add_flatten()
             else:
-                print('Unknown layer', layer)
-                raise NotImplementedError()
+                raise NotImplementedError('Unknown layer, {}', layer)
 
     def __str__(self):
         return str(self.dnn)

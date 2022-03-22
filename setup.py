@@ -14,7 +14,7 @@ extras_require['complete'] = sorted(set(sum(extras_require.values(), [])))
 
 setup(
     name="nnv-py",
-    use_scm_version=True,
+    #use_scm_version=True,
     description="Analyze deep neural networks with verification techniques",
     long_description=long_description,
     long_description_content_type='text/markdown',

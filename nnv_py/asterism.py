@@ -141,9 +141,7 @@ class Asterism:
         sum_cdf = 0.
         for region in self.cached_infeasible_regions[tuple(fixed_part)]:
             val = region.diag_gaussian_cdf(loc, scale)
-            print("val:", val)
             sum_cdf += val
-        print("sum:", sum_cdf)
         return np.array(sum_cdf)
 
     def calculate_infeasible_cdf(self, fixed_part, loc, scale):
@@ -171,7 +169,6 @@ class Asterism:
             max_value=None,
             sample_time_limit=None):
         # Check whether a reset is necessary
-        print("NEW SAMPLE")
         if fixed_part is not None or mean is not None or scale is not None:
             fixed_part = np.squeeze(fixed_part).astype(np.float64)
             self.set_input_bounds(fixed_part, mean, scale)
@@ -189,7 +186,6 @@ class Asterism:
             num_intermediate_samples=100,
             time_limit_opt=self._sample_time_limit)
         if output is None:
-            print("Setting infeasible regions to None")
             self.cached_infeasible_regions[tuple(fixed_part)] = []
             return np.random.normal(self.asterism.get_mean(),
                                     np.diag(self.asterism.get_scale()), size=(num_samples, len(self.asterism.get_mean())))

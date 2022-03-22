@@ -1,9 +1,9 @@
-extern crate env_logger;
 extern crate nnv_rs;
 extern crate numpy;
 extern crate pyo3;
 extern crate rand;
 
+use log::info;
 use numpy::ndarray::Array1;
 use numpy::Ix2;
 use numpy::PyArray1;
@@ -23,6 +23,11 @@ use crate::nnv_rs::starsets::ProbStarSet2;
 use crate::nnv_rs::starsets::StarSet;
 use crate::nnv_rs::starsets::VecStarSet;
 use itertools::izip;
+use log4rs::{
+    append::file::FileAppender,
+    config::{Appender, Config, Root},
+    encode::pattern::PatternEncoder,
+};
 use nnv_rs::bounds::Bounds1;
 use nnv_rs::deeppoly::deep_poly;
 use nnv_rs::dnn::{DNNIndex, DNNIterator, Dense, ReLU, DNN};
@@ -49,7 +54,6 @@ impl PyBounds1 {
         ) {
             let dim_norm = Normal::new(*m, *s).unwrap();
             let val = dim_norm.cdf(*u) - dim_norm.cdf(*l);
-            println!("l {:?}, u {:?}, m {:?}, s {:?}, dim: {:?}", l, u, m, s, val);
             product_cdf *= val;
         }
         product_cdf
@@ -302,16 +306,10 @@ impl PyAsterism {
         time_limit: Option<u64>,
     ) -> Option<(Py<PyArray1<f64>>, f64, f64)> {
         let mut rng = thread_rng();
-        let fst_instant = Instant::now();
         let output = self.asterism.sample_safe_star(
             num_samples,
             &mut rng,
             time_limit.map(Duration::from_millis),
-        );
-        let snd_instant = Instant::now();
-        println!(
-            "Elapsed sampling time: {:?}",
-            snd_instant.duration_since(fst_instant)
         );
         let (samples, path_logp, invalid_cdf_proportion) = output.as_ref()?;
         let gil = Python::acquire_gil();
@@ -331,6 +329,7 @@ impl PyAsterism {
         time_limit_opt: Option<u64>,
     ) -> Option<(Vec<Vec<Py<PyArray1<f64>>>>, Vec<PyBounds1>)> {
         let start_time = Instant::now();
+        info!("get_samples_and_overapproximated_infeasible_input_regions START");
         let mut rng = thread_rng();
         let mut sum_samples = 0;
         // Sample
@@ -345,7 +344,7 @@ impl PyAsterism {
                     sum_samples += chunk.0.len();
                     chunks.push(chunk.0);
                 } else {
-                    println!("Returning none from PyAsterism sample");
+                    info!("get_samples_and_overapproximated_infeasible_input_regions STOP: no feasible actions");
                     return None;
                 }
             }
@@ -379,8 +378,24 @@ impl PyAsterism {
                     .collect()
             })
             .collect();
+        info!("get_samples_and_overapproximated_infeasible_input_regions STOP: complete");
         Some((py_sample_chunks, regions))
     }
+}
+
+#[pyfunction]
+fn start_logging(file_path: &str) {
+    let level = log::LevelFilter::Info;
+    let logfile = FileAppender::builder()
+        // Pattern: https://docs.rs/log4rs/*/log4rs/encode/pattern/index.html
+        .encoder(Box::new(PatternEncoder::new("{d} - {m}\n")))
+        .build(file_path)
+        .unwrap();
+    let config = Config::builder()
+        .appender(Appender::builder().build("logfile", Box::new(logfile)))
+        .build(Root::builder().appender("logfile").build(level))
+        .unwrap();
+    let _handle = log4rs::init_config(config);
 }
 
 #[pyfunction]
@@ -399,10 +414,10 @@ fn halfspace_gaussian_cdf(
 /// # Errors
 #[pymodule]
 pub fn nnv_py(_py: Python, m: &PyModule) -> PyResult<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
     m.add_class::<PyAsterism>()?;
     m.add_class::<PyDNN>()?;
     m.add_class::<PyStarSet>()?;
     m.add_function(wrap_pyfunction!(halfspace_gaussian_cdf, m)?)?;
+    m.add_function(wrap_pyfunction!(start_logging, m)?)?;
     Ok(())
 }
